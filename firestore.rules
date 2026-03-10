@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Rules tailored for the app collections: users, resources, supportGroups, appointments
+
+    // Users: users can create their own user doc and read/update their own doc.
+    // Admins (recommended) can manage all users via an admin custom claim (request.auth.token.admin == true).
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
+      allow update: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
+      allow delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Resources: publicly readable; create/update/delete only allowed by admins.
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Support groups: publicly readable; management only by admins.
+    match /supportGroups/{groupId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Appointments: publicly readable; authenticated users may create/update appointment documents.
+    // Note: This is a permissive rule for booking flows. For stricter control, validate changes to bookedTimeSlots.
+    match /appointments/{appointmentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null; // consider adding validations here
+      allow delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Default deny for any other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
